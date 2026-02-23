@@ -2,7 +2,7 @@
 Tirol Map 3D
 --------------------------
 Dieses Skript extrahiert digitale Geländemodelle (DGM) über die WCS-Schnittstelle 
-des Landes Tirol und konvertiert diese STL- oder OBJ-Dateien.
+des Landes Tirol und konvertiert diese in STL- oder OBJ-Dateien.
 
 Rechtlicher Hinweis:
 Die Geodaten werden vom Land Tirol bereitgestellt. Bei jeglicher Art der 
@@ -16,7 +16,6 @@ Lizenz: MIT
 """
 
 import os
-import struct
 import xml.etree.ElementTree as ET
 import requests
 import numpy as np
@@ -38,13 +37,16 @@ COVERAGE_NAME = "Gelaendemodell_5m_M28"
 # covered area by the layers: y 167802–293567 / x -18752–202157
 # How to get coords: https://epsg.io/map , projection to EPSG:31254
 # x-mid:80256 y-mid:236783 for Old Town, Innsbruck (AT)
-BBOX = (235783, 79256, 237783, 81256) # ~ 2x2 km area of Innsbruck
+# kauns 26647.097431 215983.895577
+BBOX = (212983, 23647, 218983, 29647) # ~ 2x2 km area of kaunertal start
 
 # CRS (M28 -> EPSG:31254)
 CRS = "EPSG:31254"
 
 # Z-axis scaling (1.0 -> 1:1 scale, 2–5 better 3D look (useful for 3d printing))
 Z_SCALE = 2.0
+
+Z_OFFSET = 50.0
 
 # output file names
 OUTPUT_STL = "terrain.stl"
@@ -104,12 +106,12 @@ def fetch_multipart(bbox, coverage_name, crs):
     #   --wcs\n
     #   Content-Type: text/xml\n
     #   Content-ID: GML-Part\n
-    #   <?xml...         ← no space
+    #   <?xml...         <- no space
     #   ...
     #   --wcs\n
     #   Content-Type: image/tiff\n
     #   Content-ID: ...\n
-    #   II*\x00...      ← raw TIFF-Bytes
+    #   II*\x00...      <- raw TIFF-Bytes
     #   --wcs--
     raw = r.content
     delimiter = b"--" + boundary + b"\n"
@@ -210,15 +212,15 @@ def raw_to_array(tiff_bytes: bytes, rows: int = None, cols: int = None):
         with memfile.open() as dataset:
             arr = dataset.read(1).astype(np.float32)
             nodata = dataset.nodata
-            print(f"  Raster size: {arr.shape[1]} × {arr.shape[0]} Pixel")
+            print(f"  Raster size: {arr.shape[1]} x {arr.shape[0]} Pixel")
 
-    # Nodata maskieren
+    # mask nodata
     if nodata is not None:
         arr[nodata == arr] = np.nan
     arr[arr < -1000] = np.nan
     arr[arr > 9000]  = np.nan
 
-    # NaN-Lücken füllen (Vorwärts-Fill)
+    # fill NaN
     if np.isnan(arr).any():
         flat = arr.ravel()
         mask = np.isnan(flat)
@@ -227,13 +229,40 @@ def raw_to_array(tiff_bytes: bytes, rows: int = None, cols: int = None):
         arr  = flat[idx].reshape(arr.shape)
 
     valid = arr[~np.isnan(arr)]
-    print(f"  Altitude range: {valid.min():.1f} – {valid.max():.1f} m")
+    print(f"  Altitude range: {valid.min()-Z_OFFSET:.1f} - {valid.max()-Z_OFFSET:.1f} m")
     return arr
 
 
-# ── 4. Mesh bauen ────────────────────────────────────────────────────────────
+# downsample array
 
-def build_mesh(arr, origin_y, origin_x, dy, dx):
+def downsample_array(arr, dy, dx, factor):
+    """
+    Reduces array resolution by taking every n-th point.
+    Returns downsampled array and adjusted pixel sizes.
+    """
+    if factor <= 1:
+        return arr, dy, dx
+    
+    rows, cols = arr.shape
+    new_arr = arr[::factor, ::factor]
+    new_dy = dy * factor
+    new_dx = dx * factor
+    
+    new_rows, new_cols = new_arr.shape
+    reduction = (rows * cols) / (new_rows * new_cols)
+    
+    print(f"  Downsampling by factor {factor}")
+    print(f"  Original: {cols} x {rows} pixels")
+    print(f"  Reduced:  {new_cols} x {new_rows} pixels")
+    print(f"  Reduction: {reduction:.1f}x fewer points")
+    print(f"  New resolution: dx={new_dx:.1f} m, dy={new_dy:.1f} m")
+    
+    return new_arr, new_dy, new_dx
+
+
+# build mesh
+
+def build_mesh(arr, origin_y, origin_x, dy, dx, scale_factor=1.0, closed_body=False):
     """Vertices + triangles from hight-array."""
     rows, cols = arr.shape
 
@@ -244,6 +273,11 @@ def build_mesh(arr, origin_y, origin_x, dy, dx):
 
     xx, yy = np.meshgrid(xs, ys)
     zz = arr * Z_SCALE
+
+    # apply scale
+    xx = xx * scale_factor
+    yy = yy * scale_factor
+    zz = zz * scale_factor
 
     verts = np.column_stack([xx.ravel(), yy.ravel(), zz.ravel()])
 
@@ -263,6 +297,68 @@ def build_mesh(arr, origin_y, origin_x, dy, dx):
         np.column_stack([v10, v11, v01]),
     ])
 
+    if closed_body:
+        print("  Creating closed volume...")
+        
+        # min z height
+        min_z = np.min(zz) - Z_OFFSET * scale_factor  # 1m
+        
+        # create floor verts
+        base_verts = verts.copy()
+        base_verts[:, 2] = min_z
+        
+        # add floor vertices
+        offset = len(verts)
+        verts = np.vstack([verts, base_verts])
+        
+        # bottom face (mirrored)
+        base_faces = faces.copy() + offset
+        base_faces = np.column_stack([base_faces[:, 0], base_faces[:, 2], base_faces[:, 1]])
+        
+        # side face
+        side_faces = []
+        
+        # edge (row 0)
+        for col in range(cols - 1):
+            v1 = col
+            v2 = col + 1
+            v3 = v2 + offset
+            v4 = v1 + offset
+            side_faces.append([v1, v2, v3])
+            side_faces.append([v1, v3, v4])
+        
+        # edge (row rows-1)
+        for col in range(cols - 1):
+            v1 = (rows - 1) * cols + col
+            v2 = (rows - 1) * cols + col + 1
+            v3 = v2 + offset
+            v4 = v1 + offset
+            side_faces.append([v1, v3, v2])
+            side_faces.append([v1, v4, v3])
+        
+        #  edge (col 0)
+        for row in range(rows - 1):
+            v1 = row * cols
+            v2 = (row + 1) * cols
+            v3 = v2 + offset
+            v4 = v1 + offset
+            side_faces.append([v1, v3, v2])
+            side_faces.append([v1, v4, v3])
+        
+        # edge (col cols-1)
+        for row in range(rows - 1):
+            v1 = row * cols + (cols - 1)
+            v2 = (row + 1) * cols + (cols - 1)
+            v3 = v2 + offset
+            v4 = v1 + offset
+            side_faces.append([v1, v2, v3])
+            side_faces.append([v1, v3, v4])
+        
+        side_faces = np.array(side_faces)
+        
+        # combine all faces
+        faces = np.vstack([faces, base_faces, side_faces])
+
     print(f"  Mesh: {len(verts):,} Vertices, {len(faces):,} Triangles")
     return verts, faces
 
@@ -271,10 +367,11 @@ def build_mesh(arr, origin_y, origin_x, dy, dx):
 
 def export_stl(verts, faces, path):
     from stl import mesh as stl_mesh
+    verts_mm = verts * 1000.0
     m = stl_mesh.Mesh(np.zeros(len(faces), dtype=stl_mesh.Mesh.dtype))
     for i, f in enumerate(faces):
         for j in range(3):
-            m.vectors[i][j] = verts[f[j]]
+            m.vectors[i][j] = verts_mm[f[j]]
     m.save(path)
     print(f"STL saved: {path}  ({os.path.getsize(path)/1024/1024:.1f} MB)")
 
@@ -282,9 +379,11 @@ def export_stl(verts, faces, path):
 # OBJ export
 
 def export_obj(verts, faces, path):
+    verts_mm = verts * 1000.0
     with open(path, "w") as f:
-        f.write("#Datenquelle: Land Tirol\n")
-        for v in verts:
+        f.write("# Datenquelle: Land Tirol\n")
+        f.write("# Units: millimeters\n")
+        for v in verts_mm:
             f.write(f"v {v[0]:.3f} {v[1]:.3f} {v[2]:.3f}\n")
         for face in faces:
             f.write(f"f {face[0]+1} {face[1]+1} {face[2]+1}\n")
@@ -309,7 +408,7 @@ if __name__ == "__main__":
             raw_bytes = body
 
     if gml_bytes is None or raw_bytes is None:
-        # Fallback
+        # fallback
         gml_bytes = parts[0][1]
         raw_bytes  = parts[1][1]
 
@@ -318,20 +417,96 @@ if __name__ == "__main__":
     # with open("debug.bin", "wb") as f: f.write(raw_bytes)
 
     # parse GML
-    print("\nParse GML …")
+    print("\nParse GML ...")
     rows, cols, origin_y, origin_x, dy, dx = parse_gml(gml_bytes)
 
-    # 3. Raw to array
+    # raw to array
     print("\nConverting raw data ...")
     arr = raw_to_array(raw_bytes)
 
-    # 4. build mesh
-    print("\nBuildign mesh ...")
-    verts, faces = build_mesh(arr, origin_y, origin_x, dy, dx)
-
-    # 5. export
+    # downsampling
+    print("\nMesh simplification:")
+    rows, cols = arr.shape
+    estimated_verts = rows * cols
+    estimated_faces = (rows - 1) * (cols - 1) * 2
+    
+    print(f"  Current grid: {cols} × {rows} pixels")
+    print(f"  Estimated mesh: {estimated_verts:,} vertices, {estimated_faces:,} triangles")
+    
     while True:
-        match(int(input("Export mesh to...\n   [0] STL\n   [1] OBJ\n   [2] STL and OBJ\nEnter a number: "))):
+        try:
+            downsample_factor = int(input("\nDownsampling factor (No scaling = 1; recommended = 4): "))
+            if downsample_factor < 1:
+                print("Factor must be at least 1.")
+                continue
+            
+            if downsample_factor > 1:
+                test_rows = rows // downsample_factor
+                test_cols = cols // downsample_factor
+                new_verts = test_rows * test_cols
+                new_faces = (test_rows - 1) * (test_cols - 1) * 2
+                print(f"\n  With factor {downsample_factor}:")
+                print(f"  New grid: {test_cols} × {test_rows} pixels")
+                print(f"  New mesh: {new_verts:,} vertices, {new_faces:,} triangles")
+                print(f"  Reduction: {estimated_verts/new_verts:.1f}x fewer vertices")
+            
+            confirm = input("\nConfirm (y/n): ").strip().lower()
+            if confirm == "y":
+                if downsample_factor > 1:
+                    print("\nApplying downsampling...")
+                    arr, dy, dx = downsample_array(arr, dy, dx, downsample_factor)
+                    rows, cols = arr.shape
+                break
+        except ValueError:
+            print("Enter a valid integer.")
+
+    # getting true values in meters
+    actual_width_m = (cols - 1) * dx
+    actual_height_m = (rows - 1) * dy
+    max_dimension_m = max(actual_width_m, actual_height_m)
+    
+    print(f"\nArea: {actual_width_m:.1f} m x {actual_height_m:.1f} m")
+    print(f"Max extend: {max_dimension_m:.1f} m")
+
+    # closed volume
+    while True:
+        closed_input = input("\nCreate closed volume? (y/n): ").strip().lower()
+        if closed_input in ["n", "y"]:
+            closed_body = closed_input in ["y"]
+            break
+        print("\nEnter 'y' for yes or 'n' for no!")
+
+    # scaling
+    while True:
+        try:
+            target_size_mm = float(input("\nSide length of square in mm (float): "))
+            if target_size_mm <= 0:
+                print("Only positive values are allowed.")
+                continue
+            
+            # scale factor (mm to m)
+            scale_factor = target_size_mm / max_dimension_m / 1000.0
+            
+            # new height width
+            result_width = actual_width_m * scale_factor * 1000.0
+            result_height = actual_height_m * scale_factor * 1000.0
+            
+            print(f"\nOutput size: {result_width:.1f} mm x {result_height:.1f} mm")
+            print(f"Scale: 1:{int(1/scale_factor)}")
+            
+            confirm = input("Confirm (y/n): ").strip().lower()
+            if confirm in ["y"]:
+                break
+        except ValueError:
+            print("Enter a valid number.")
+
+    # build mesh
+    print("\nBuilding mesh ...")
+    verts, faces = build_mesh(arr, origin_y, origin_x, dy, dx, scale_factor, closed_body)
+
+    # export
+    while True:
+        match(int(input("\nExport mesh to...\n   [0] STL\n   [1] OBJ\n   [2] STL and OBJ\nEnter a number: "))):
             case 0:
                 print("\nThis may take a while. Exporting...")
                 export_stl(verts, faces, OUTPUT_STL)
@@ -344,7 +519,9 @@ if __name__ == "__main__":
                 print("\nThis may take a while. Exporting...")
                 export_stl(verts, faces, OUTPUT_STL)
                 export_obj(verts, faces, OUTPUT_OBJ)
-            case _: break
+                break
+            case _: 
+                print("Invalid input.")
     
 
     print("\nDone!")
