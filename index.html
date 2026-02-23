@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Tirol DGM · Bereichsauswahl</title>
+<title>Tirol DGM · 3D‑Generator</title>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet">
@@ -81,16 +81,6 @@
   .area-chip .val { font-size: 16px; font-weight: 700; font-family: 'Space Mono', monospace; color: var(--accent2); }
   .area-chip .unit { font-size: 10px; color: var(--muted); margin-top: 2px; }
 
-  .code-block { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 14px; font-family: 'Space Mono', monospace; font-size: 12px; line-height: 1.7; color: #a8c4e8; position: relative; overflow-x: auto; white-space: pre; }
-  .code-block .comment { color: #4a6280; }
-  .code-block .kw { color: #c792ea; }
-  .code-block .str { color: #c3e88d; }
-  .code-block .num { color: var(--accent); }
-  .code-block .placeholder { color: var(--muted); font-style: italic; }
-  .copy-btn { position: absolute; top: 8px; right: 8px; background: var(--surface); border: 1px solid var(--border); color: var(--muted); font-family: 'Space Mono', monospace; font-size: 10px; padding: 4px 8px; border-radius: 4px; cursor: pointer; transition: all 0.15s; }
-  .copy-btn:hover { border-color: var(--accent); color: var(--accent); }
-  .copy-btn.copied { border-color: var(--accent); color: var(--accent); }
-
   .res-toggle { display: flex; gap: 6px; }
   .res-btn { flex: 1; padding: 8px; background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; color: var(--muted); font-family: 'Space Mono', monospace; font-size: 11px; cursor: pointer; transition: all 0.15s; text-align: center; }
   .res-btn:hover { border-color: var(--accent); color: var(--text); }
@@ -110,22 +100,24 @@
   .warning.show { display: block; }
 
   /* ── GENERATE PANEL ── */
-  .gen-options { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+  .gen-options { display: flex; flex-direction: column; gap: 12px; margin-bottom: 12px; }
 
-  .opt-row { display: flex; gap: 6px; }
+  .opt-row { display: flex; gap: 6px; align-items: center; }
   .opt-label { font-size: 10px; font-family: 'Space Mono', monospace; color: var(--muted); margin-bottom: 6px; letter-spacing: 0.05em; display: block; }
 
-  .opt-group { flex: 1; }
+  .opt-group {  }
+  .opt-group.horizontal { display: flex; align-items: center; gap: 10px; }
+  .opt-group.horizontal .opt-label { margin-bottom: 0; }
+
+  .num-input { width: 100%; padding: 7px 10px; background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-family: 'Space Mono', monospace; font-size: 12px; }
+  .num-input:focus { outline: none; border-color: var(--accent); }
 
   .tog-btn { flex: 1; padding: 7px 6px; background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; color: var(--muted); font-family: 'Space Mono', monospace; font-size: 11px; cursor: pointer; transition: all 0.15s; text-align: center; }
   .tog-btn:hover { border-color: var(--accent); color: var(--text); }
   .tog-btn.active { border-color: var(--accent); background: rgba(74,240,168,0.08); color: var(--accent); }
   .tog-btn.active-orange { border-color: var(--accent2); background: rgba(240,168,74,0.08); color: var(--accent2); }
 
-  .num-input { width: 100%; padding: 7px 10px; background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-family: 'Space Mono', monospace; font-size: 12px; }
-  .num-input:focus { outline: none; border-color: var(--accent); }
-
-  .gen-btn { width: 100%; padding: 13px; background: linear-gradient(135deg, rgba(74,240,168,0.15), rgba(74,240,168,0.08)); border: 1px solid var(--accent); border-radius: 8px; color: var(--accent); font-family: 'Syne', sans-serif; font-size: 14px; font-weight: 800; cursor: pointer; transition: all 0.2s; letter-spacing: 0.05em; }
+  .gen-btn { width: 100%; padding: 13px; background: linear-gradient(135deg, rgba(74,240,168,0.15), rgba(74,240,168,0.08)); border: 1px solid var(--accent); border-radius: 8px; color: var(--accent); font-family: 'Syne', sans-serif; font-size: 14px; font-weight: 800; cursor: pointer; transition: all 0.2s; letter-spacing: 0.05em; margin-top: 6px; }
   .gen-btn:hover:not(:disabled) { background: linear-gradient(135deg, rgba(74,240,168,0.25), rgba(74,240,168,0.15)); box-shadow: 0 0 20px rgba(74,240,168,0.15); }
   .gen-btn:disabled { opacity: 0.4; cursor: not-allowed; }
   .gen-btn.loading { animation: pulse 1.5s infinite; }
@@ -133,7 +125,7 @@
   @keyframes pulse { 0%,100% { opacity: 0.6; } 50% { opacity: 1; } }
 
   /* ── LOG BOX ── */
-  .log-box { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 10px 12px; font-family: 'Space Mono', monospace; font-size: 11px; color: var(--muted); max-height: 140px; overflow-y: auto; line-height: 1.7; display: none; }
+  .log-box { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 10px 12px; font-family: 'Space Mono', monospace; font-size: 11px; color: var(--muted); max-height: 140px; overflow-y: auto; line-height: 1.7; display: none; margin-top: 10px; }
   .log-box.show { display: block; }
   .log-line { color: var(--muted); }
   .log-line.ok { color: var(--accent); }
@@ -204,38 +196,37 @@
 
 <header>
   <div>
-    <div class="logo">Tirol <span>DGM</span> Selector</div>
+    <div class="logo">Tirol <span>DGM</span> 3D</div>
     <div class="subtitle">WCS · EPSG:31254 · Land Tirol</div>
   </div>
   <div class="header-right">
     <div class="badge active" id="status-badge">Bereit</div>
-    <div class="badge">5m / 50cm Auflösung</div>
+    <div class="badge">5m / 50cm</div>
   </div>
 </header>
 
 <div class="main">
   <div style="position:relative;flex:1;display:flex;">
-  <div id="map"></div>
+    <div id="map"></div>
 
-  <!-- Search control overlay -->
-  <div class="search-control" id="search-control">
-    <div class="search-wrap">
-      <span class="search-icon">🔍</span>
-      <input class="search-input" id="search-input" type="text" placeholder="Ort suchen..." autocomplete="off">
-      <span class="search-clear" id="search-clear" onclick="clearSearch()">✕</span>
+    <!-- Search overlay -->
+    <div class="search-control" id="search-control" style="margin-left:40px;">
+      <div class="search-wrap">
+        <span class="search-icon">🔍</span>
+        <input class="search-input" id="search-input" type="text" placeholder="Ort suchen..." autocomplete="off">
+        <span class="search-clear" id="search-clear" onclick="clearSearch()">✕</span>
+      </div>
+      <div class="search-results" id="search-results"></div>
     </div>
-    <div class="search-results" id="search-results"></div>
-  </div>
-
   </div><!-- /map-wrap -->
-  <div class="sidebar">
 
+  <div class="sidebar">
     <!-- Instruction -->
     <div class="panel">
       <div class="panel-title">Anleitung</div>
       <div class="instruction">
         <span class="icon">⬛</span>
-        <span>Klicke und ziehe auf der Karte um einen Bereich auszuwählen. Die BBOX-Koordinaten werden automatisch in <strong>EPSG:31254</strong> umgerechnet.</span>
+        <span>Klicke und ziehe auf der Karte um einen Bereich auszuwählen. Die BBOX-Koordinaten werden in EPSG:31254 angezeigt.</span>
       </div>
     </div>
 
@@ -294,34 +285,15 @@
       </div>
     </div>
 
-    <!-- Python Code -->
-    <div class="panel">
-      <div class="panel-title">Python Code</div>
-      <div class="code-block" id="code-output">
-<span class="comment"># Bereich auswählen um Code</span>
-<span class="comment"># zu generieren...</span>
-
-<span class="placeholder">BBOX = (y_min, x_min,
-        y_max, x_max)</span>
-        <button class="copy-btn" id="copy-btn" onclick="copyCode()">Copy</button>
-      </div>
-    </div>
-
-    <!-- ── GENERATE PANEL ── -->
+    <!-- GENERATE PANEL (nur Einstellungen + Button) -->
     <div class="panel">
       <div class="panel-title">3D-Datei generieren</div>
 
       <div class="gen-options">
-
-        <!-- Downsampling -->
+        <!-- Downsampling (jetzt als freies Eingabefeld) -->
         <div class="opt-group">
-          <span class="opt-label">Downsampling-Faktor</span>
-          <div class="opt-row" id="ds-toggle">
-            <button class="tog-btn active" data-val="1" onclick="setDS(this)">1× (exakt)</button>
-            <button class="tog-btn" data-val="2" onclick="setDS(this)">2×</button>
-            <button class="tog-btn" data-val="4" onclick="setDS(this)">4× (emp.)</button>
-            <button class="tog-btn" data-val="8" onclick="setDS(this)">8×</button>
-          </div>
+          <span class="opt-label">Downsampling-Faktor (ganze Zahl)</span>
+          <input class="num-input" type="number" id="downsample-input" value="1" min="1" step="1">
         </div>
 
         <!-- Zielgröße -->
@@ -330,7 +302,7 @@
           <input class="num-input" type="number" id="target-mm" value="100" min="10" max="1000" step="10">
         </div>
 
-        <!-- Geschlossen -->
+        <!-- Geschlossen / offen -->
         <div class="opt-group">
           <span class="opt-label">Volumen</span>
           <div class="opt-row">
@@ -348,69 +320,23 @@
             <button class="tog-btn" data-fmt="both" onclick="setFmt(this)">Beide</button>
           </div>
         </div>
-
       </div>
 
       <button class="gen-btn" id="gen-btn" onclick="startGenerate()" disabled>
         ▶ GENERIEREN
       </button>
 
-      <!-- Log -->
+      <!-- Log-Ausgabe und Downloads -->
       <div class="log-box" id="log-box"></div>
-
-      <!-- Downloads -->
       <div class="dl-list" id="dl-list"></div>
     </div>
 
-    <!-- Presets -->
-    <div class="panel">
-      <div class="panel-title">Schnellauswahl</div>
-      <div class="preset-list">
-        <button class="preset-btn" onclick="applyPreset(212983,23647,218983,29647,'Kaunertal Start')">
-          <div class="preset-dot"></div>
-          <div>
-            <div class="preset-name">Kaunertal Start</div>
-            <div class="preset-sub">~6×6 km · Standard-Beispiel</div>
-          </div>
-        </button>
-        <button class="preset-btn" onclick="applyPreset(230000,74000,236000,80000,'Innsbruck Altstadt')">
-          <div class="preset-dot"></div>
-          <div>
-            <div class="preset-name">Innsbruck Altstadt</div>
-            <div class="preset-sub">~6×6 km</div>
-          </div>
-        </button>
-        <button class="preset-btn" onclick="applyPreset(234000,60000,244000,70000,'Innsbruck Region')">
-          <div class="preset-dot"></div>
-          <div>
-            <div class="preset-name">Innsbruck Region</div>
-            <div class="preset-sub">~10×10 km</div>
-          </div>
-        </button>
-        <button class="preset-btn" onclick="applyPreset(195000,20000,210000,35000,'Kaunertal Gesamt')">
-          <div class="preset-dot"></div>
-          <div>
-            <div class="preset-name">Kaunertal Gesamt</div>
-            <div class="preset-sub">~15×15 km</div>
-          </div>
-        </button>
-        <button class="preset-btn" onclick="applyPreset(165000,150000,175000,160000,'Kitzbühel')">
-          <div class="preset-dot"></div>
-          <div>
-            <div class="preset-name">Kitzbühel</div>
-            <div class="preset-sub">~10×10 km</div>
-          </div>
-        </button>
-      </div>
-    </div>
-
-    <!-- Clear -->
+    <!-- Auswahl löschen -->
     <div class="panel">
       <button class="clear-btn" onclick="clearSelection()">✕ Auswahl löschen</button>
     </div>
-
-  </div>
-</div>
+  </div><!-- /sidebar -->
+</div><!-- /main -->
 
 <script>
 // ── PROJ ─────────────────────────────────────────────────────────────────
@@ -474,7 +400,7 @@ const map = L.map('map', { center: [47.2, 11.4], zoom: 9, zoomControl: true });
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap', maxZoom: 19 }).addTo(map);
 L.rectangle([[46.65, 10.1], [47.75, 12.95]], { color: '#4af0a8', weight: 1, opacity: 0.3, fill: false, dashArray: '6 4' }).addTo(map);
 
-// right-click drag
+// right‑click drag
 let isRightDragging = false, lastMousePos = null;
 map.getContainer().addEventListener('mousedown', e => { if (e.button === 2) { e.preventDefault(); isRightDragging = true; lastMousePos = { x: e.clientX, y: e.clientY }; map.getContainer().style.cursor = 'grabbing'; } });
 window.addEventListener('mousemove', e => { if (!isRightDragging) return; e.preventDefault(); const dx = e.clientX - lastMousePos.x, dy = e.clientY - lastMousePos.y; if (dx||dy) { map.panBy([-dx,-dy],{animate:false}); lastMousePos={x:e.clientX,y:e.clientY}; } });
@@ -483,7 +409,7 @@ map.getContainer().addEventListener('contextmenu', e => e.preventDefault());
 
 // ── STATE ─────────────────────────────────────────────────────────────────
 let isDrawing=false, startLatLng=null, currentRect=null, selectedBbox=null;
-let currentRes='5m', dsVal=1, closedBody=false, fmtVal='stl';
+let currentRes='5m', closedBody=false, fmtVal='stl';
 
 // ── DRAW ──────────────────────────────────────────────────────────────────
 map.on('mousedown', e => {
@@ -509,18 +435,7 @@ map.on('mouseup', e => {
   document.getElementById('status-badge').textContent='Ausgewählt';
 });
 
-// ── PRESETS ───────────────────────────────────────────────────────────────
-function applyPreset(ymin,xmin,ymax,xmax,name) {
-  selectedBbox={ymin,xmin,ymax,xmax};
-  updateUI(ymin,xmin,ymax,xmax);
-  const sw=from31254toLonLat(ymin,xmin), ne=from31254toLonLat(ymax,xmax);
-  if (currentRect) map.removeLayer(currentRect);
-  currentRect = L.rectangle([[sw[0],sw[1]],[ne[0],ne[1]]], { color:'#f0a84a', weight:2, opacity:0.9, fillColor:'#f0a84a', fillOpacity:0.08 }).addTo(map);
-  map.fitBounds([[sw[0],sw[1]],[ne[0],ne[1]]],{padding:[40,40]});
-  document.getElementById('status-badge').textContent=name;
-}
-
-// ── UI UPDATE ─────────────────────────────────────────────────────────────
+// ── UI UPDATE (Koordinaten, Warnung, Aktivierung Gen‑Button) ─────────────
 function updateUI(ymin,xmin,ymax,xmax) {
   document.getElementById('val-ymin').textContent=ymin.toLocaleString('de-AT');
   document.getElementById('val-xmin').textContent=xmin.toLocaleString('de-AT');
@@ -533,42 +448,15 @@ function updateUI(ymin,xmin,ymax,xmax) {
   document.getElementById('area-total').textContent=areaSqKm;
   document.getElementById('area-info').style.display='flex';
   const warn=document.getElementById('size-warning');
-  if(parseFloat(areaSqKm)>25&&currentRes==='50cm') warn.classList.add('show'); else warn.classList.remove('show');
-  updateCode(ymin,xmin,ymax,xmax);
+  if(parseFloat(areaSqKm)>25 && currentRes==='50cm') warn.classList.add('show'); else warn.classList.remove('show');
   document.getElementById('gen-btn').disabled=false;
-}
-
-function updateCode(ymin,xmin,ymax,xmax) {
-  const coverageName=currentRes==='5m'?'Gelaendemodell_5m_M28':'Gelaendemodell_50cm_M28';
-  document.getElementById('code-output').innerHTML=`<span class="comment"># Datenquelle: Land Tirol</span>
-<span class="comment"># Auflösung: ${currentRes==='5m'?'5 Meter':'50 cm (!)'}</span>
-
-<span class="kw">COVERAGE_NAME</span> = <span class="str">"${coverageName}"</span>
-
-<span class="comment"># BBOX (y_min, x_min, y_max, x_max)</span>
-<span class="kw">BBOX</span> = (<span class="num">${ymin}</span>, <span class="num">${xmin}</span>,
-       <span class="num">${ymax}</span>, <span class="num">${xmax}</span>)
-
-<span class="comment"># Fläche: ~${((ymax-ymin)/1000).toFixed(1)} × ${((xmax-xmin)/1000).toFixed(1)} km</span><button class="copy-btn" id="copy-btn" onclick="copyCode()">Copy</button>`;
 }
 
 function setResolution(res) {
   currentRes=res;
   document.getElementById('res-5m').className='res-btn'+(res==='5m'?' active':'');
   document.getElementById('res-50cm').className='res-btn'+(res==='50cm'?' active':'');
-  if(selectedBbox){const{ymin,xmin,ymax,xmax}=selectedBbox;updateUI(ymin,xmin,ymax,xmax);}
-}
-
-function copyCode() {
-  if(!selectedBbox) return;
-  const{ymin,xmin,ymax,xmax}=selectedBbox;
-  const cn=currentRes==='5m'?'Gelaendemodell_5m_M28':'Gelaendemodell_50cm_M28';
-  const text=`# Datenquelle: Land Tirol\nCOVERAGE_NAME = "${cn}"\nBBOX = (${ymin}, ${xmin}, ${ymax}, ${xmax})`;
-  navigator.clipboard.writeText(text).then(()=>{
-    const btn=document.getElementById('copy-btn');
-    btn.textContent='✓ Kopiert!'; btn.classList.add('copied');
-    setTimeout(()=>{btn.textContent='Copy';btn.classList.remove('copied');},2000);
-  });
+  if(selectedBbox){const{ymin,xmin,ymax,xmax}=selectedBbox; updateUI(ymin,xmin,ymax,xmax);}
 }
 
 function clearSelection() {
@@ -581,27 +469,18 @@ function clearSelection() {
   ['coord-ymin','coord-xmin','coord-ymax','coord-xmax'].forEach(id=>document.getElementById(id).classList.remove('highlight'));
   document.getElementById('area-info').style.display='none';
   document.getElementById('size-warning').classList.remove('show');
-  document.getElementById('code-output').innerHTML=`<span class="comment"># Bereich auswählen um Code</span>\n<span class="comment"># zu generieren...</span>\n\n<span class="placeholder">BBOX = (y_min, x_min,\n        y_max, x_max)</span><button class="copy-btn" id="copy-btn" onclick="copyCode()">Copy</button>`;
   document.getElementById('status-badge').textContent='Bereit';
-  document.getElementById('status-badge').className='badge active';
   document.getElementById('gen-btn').disabled=true;
   document.getElementById('log-box').classList.remove('show');
   document.getElementById('dl-list').innerHTML='';
 }
 
-// ── GENERATE OPTIONS ──────────────────────────────────────────────────────
-function setDS(btn) {
-  document.querySelectorAll('#ds-toggle .tog-btn').forEach(b=>b.classList.remove('active'));
-  btn.classList.add('active');
-  dsVal=parseInt(btn.dataset.val);
-}
-
+// ── GENERATE OPTIONS (ohne Downsample‑Buttons) ───────────────────────────
 function setClosed(v) {
   closedBody=v;
   document.getElementById('closed-no').className='tog-btn'+(v?'':' active');
   document.getElementById('closed-yes').className='tog-btn'+(v?' active':'');
 }
-
 function setFmt(btn) {
   document.querySelectorAll('[data-fmt]').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
@@ -614,8 +493,17 @@ let pollTimer = null;
 
 function startGenerate() {
   if (!selectedBbox) return;
+
+  // Werte direkt aus den Eingabefeldern holen
+  const dsInput = document.getElementById('downsample-input');
+  const dsVal = parseInt(dsInput.value, 10);
+  if (isNaN(dsVal) || dsVal < 1) {
+    alert('Bitte einen gültigen Downsampling-Faktor (ganze Zahl ≥ 1) eingeben.');
+    return;
+  }
+
   const {ymin,xmin,ymax,xmax} = selectedBbox;
-  const coverageName = currentRes==='5m'?'Gelaendemodell_5m_M28':'Gelaendemodell_50cm_M28';
+  const coverageName = currentRes==='5m' ? 'Gelaendemodell_5m_M28' : 'Gelaendemodell_50cm_M28';
   const targetMm = parseFloat(document.getElementById('target-mm').value) || 100;
 
   const genBtn = document.getElementById('gen-btn');
@@ -661,7 +549,6 @@ function pollJob(jobId) {
     fetch(`${SERVER}/status/${jobId}`)
       .then(r => r.json())
       .then(data => {
-        // sync log lines
         const logBox = document.getElementById('log-box');
         const existing = logBox.children.length;
         const allLogs = data.log || [];
@@ -713,7 +600,7 @@ function resetGenBtn(label='▶ GENERIEREN') {
   genBtn.textContent = label;
 }
 
-// ── SEARCH ────────────────────────────────────────────────────────────────
+// ── SEARCH (Nominatim) ───────────────────────────────────────────────────
 let searchTimer = null;
 let searchMarker = null;
 
@@ -728,7 +615,6 @@ searchInput.addEventListener('input', () => {
   if (q.length < 2) { hideResults(); return; }
   searchTimer = setTimeout(() => doSearch(q), 350);
 });
-
 searchInput.addEventListener('keydown', e => {
   if (e.key === 'Escape') clearSearch();
   if (e.key === 'Enter') {
@@ -736,8 +622,6 @@ searchInput.addEventListener('keydown', e => {
     if (first) first.click();
   }
 });
-
-// close results when clicking outside
 document.addEventListener('click', e => {
   if (!document.getElementById('search-control').contains(e.target)) hideResults();
 });
@@ -758,11 +642,9 @@ async function doSearch(q) {
       const div = document.createElement('div');
       div.className = 'search-result-item';
       const name = item.display_name.split(',')[0];
-      const sub  = item.display_name.split(',').slice(1, 3).join(',').trim();
+      const sub  = item.display_name.split(',').slice(1,3).join(',').trim();
       div.innerHTML = '<div>' + name + '</div><div class="search-result-sub">' + sub + '</div>';
-      div.addEventListener('click', () => {
-        selectResult(item, name);
-      });
+      div.addEventListener('click', () => { selectResult(item, name); });
       searchResults.appendChild(div);
     });
   } catch(e) {
@@ -772,21 +654,14 @@ async function doSearch(q) {
 
 function selectResult(item, name) {
   const lat = parseFloat(item.lat), lon = parseFloat(item.lon);
-  // fly to location
-  const bbox = item.boundingbox;
-  if (bbox) {
-    map.fitBounds([[parseFloat(bbox[0]), parseFloat(bbox[2])],[parseFloat(bbox[1]), parseFloat(bbox[3])]], { maxZoom: 14, padding: [30,30] });
+  if (item.boundingbox) {
+    map.fitBounds([[parseFloat(item.boundingbox[0]), parseFloat(item.boundingbox[2])],[parseFloat(item.boundingbox[1]), parseFloat(item.boundingbox[3])]], { maxZoom:14, padding:[30,30] });
   } else {
     map.setView([lat, lon], 13);
   }
-  // marker
   if (searchMarker) map.removeLayer(searchMarker);
   searchMarker = L.circleMarker([lat, lon], {
-    radius: 7,
-    color: '#f0a84a',
-    fillColor: '#f0a84a',
-    fillOpacity: 0.9,
-    weight: 2,
+    radius: 7, color: '#f0a84a', fillColor: '#f0a84a', fillOpacity:0.9, weight:2
   }).addTo(map).bindPopup(name).openPopup();
 
   searchInput.value = name;
@@ -795,14 +670,12 @@ function selectResult(item, name) {
 }
 
 function hideResults() { searchResults.classList.remove('show'); }
-
 function clearSearch() {
   searchInput.value = '';
   searchClear.style.display = 'none';
   hideResults();
   if (searchMarker) { map.removeLayer(searchMarker); searchMarker = null; }
 }
-
 </script>
 </body>
 </html>
