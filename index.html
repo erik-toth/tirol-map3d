@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Tirol DGM · 3D‑Generator</title>
+<title>Tirol DGM · 3D‑Generator (auf Tirol begrenzt)</title>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet">
@@ -51,6 +51,7 @@
   .header-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
   .badge { font-family: 'Space Mono', monospace; font-size: 10px; padding: 3px 8px; border-radius: 3px; background: var(--surface2); border: 1px solid var(--border); color: var(--muted); }
   .badge.active { border-color: var(--accent); color: var(--accent); }
+  .badge.warning { border-color: var(--accent2); color: var(--accent2); }
 
   .main { display: flex; flex: 1; overflow: hidden; }
 
@@ -86,36 +87,22 @@
   .res-btn:hover { border-color: var(--accent); color: var(--text); }
   .res-btn.active { border-color: var(--accent); background: rgba(74,240,168,0.08); color: var(--accent); }
 
-  .preset-list { display: flex; flex-direction: column; gap: 6px; }
-  .preset-btn { display: flex; align-items: center; gap: 10px; padding: 10px 12px; background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; cursor: pointer; transition: all 0.15s; text-align: left; width: 100%; }
-  .preset-btn:hover { border-color: var(--accent2); }
-  .preset-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent2); flex-shrink: 0; }
-  .preset-name { font-size: 13px; font-weight: 600; color: var(--text); }
-  .preset-sub { font-size: 10px; font-family: 'Space Mono', monospace; color: var(--muted); margin-top: 1px; }
-
   .clear-btn { width: 100%; padding: 10px; background: transparent; border: 1px solid var(--border); border-radius: 6px; color: var(--danger); font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.15s; letter-spacing: 0.03em; }
   .clear-btn:hover { background: rgba(240,90,107,0.1); border-color: var(--danger); }
 
   .warning { background: rgba(240,168,74,0.08); border: 1px solid rgba(240,168,74,0.3); border-radius: 6px; padding: 10px 12px; font-size: 12px; color: var(--accent2); line-height: 1.5; display: none; }
   .warning.show { display: block; }
 
-  /* ── GENERATE PANEL ── */
+  /* GENERATE PANEL */
   .gen-options { display: flex; flex-direction: column; gap: 12px; margin-bottom: 12px; }
-
   .opt-row { display: flex; gap: 6px; align-items: center; }
   .opt-label { font-size: 10px; font-family: 'Space Mono', monospace; color: var(--muted); margin-bottom: 6px; letter-spacing: 0.05em; display: block; }
-
   .opt-group {  }
-  .opt-group.horizontal { display: flex; align-items: center; gap: 10px; }
-  .opt-group.horizontal .opt-label { margin-bottom: 0; }
-
   .num-input { width: 100%; padding: 7px 10px; background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-family: 'Space Mono', monospace; font-size: 12px; }
   .num-input:focus { outline: none; border-color: var(--accent); }
-
   .tog-btn { flex: 1; padding: 7px 6px; background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; color: var(--muted); font-family: 'Space Mono', monospace; font-size: 11px; cursor: pointer; transition: all 0.15s; text-align: center; }
   .tog-btn:hover { border-color: var(--accent); color: var(--text); }
   .tog-btn.active { border-color: var(--accent); background: rgba(74,240,168,0.08); color: var(--accent); }
-  .tog-btn.active-orange { border-color: var(--accent2); background: rgba(240,168,74,0.08); color: var(--accent2); }
 
   .gen-btn { width: 100%; padding: 13px; background: linear-gradient(135deg, rgba(74,240,168,0.15), rgba(74,240,168,0.08)); border: 1px solid var(--accent); border-radius: 8px; color: var(--accent); font-family: 'Syne', sans-serif; font-size: 14px; font-weight: 800; cursor: pointer; transition: all 0.2s; letter-spacing: 0.05em; margin-top: 6px; }
   .gen-btn:hover:not(:disabled) { background: linear-gradient(135deg, rgba(74,240,168,0.25), rgba(74,240,168,0.15)); box-shadow: 0 0 20px rgba(74,240,168,0.15); }
@@ -124,14 +111,12 @@
 
   @keyframes pulse { 0%,100% { opacity: 0.6; } 50% { opacity: 1; } }
 
-  /* ── LOG BOX ── */
   .log-box { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 10px 12px; font-family: 'Space Mono', monospace; font-size: 11px; color: var(--muted); max-height: 140px; overflow-y: auto; line-height: 1.7; display: none; margin-top: 10px; }
   .log-box.show { display: block; }
   .log-line { color: var(--muted); }
   .log-line.ok { color: var(--accent); }
   .log-line.err { color: var(--danger); }
 
-  /* ── DOWNLOAD BUTTONS ── */
   .dl-list { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
   .dl-btn { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; background: rgba(74,240,168,0.06); border: 1px solid rgba(74,240,168,0.3); border-radius: 6px; cursor: pointer; text-decoration: none; transition: all 0.15s; }
   .dl-btn:hover { background: rgba(74,240,168,0.12); border-color: var(--accent); }
@@ -142,7 +127,7 @@
   .sidebar::-webkit-scrollbar-track { background: transparent; }
   .sidebar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
 
-  /* ── SEARCH ── */
+  /* Search */
   .search-control {
     position: absolute;
     top: 12px;
@@ -197,11 +182,11 @@
 <header>
   <div>
     <div class="logo">Tirol <span>DGM</span> 3D</div>
-    <div class="subtitle">WCS · EPSG:31254 · Land Tirol</div>
+    <div class="subtitle">EPSG:31254 · Land Tirol</div>
   </div>
   <div class="header-right">
     <div class="badge active" id="status-badge">Bereit</div>
-    <div class="badge">5m / 50cm</div>
+    <div class="badge warning" title="Verfügbarer Bereich: y 167802–293567 / x -18752–202157">begrenzt auf Tirol</div>
   </div>
 </header>
 
@@ -226,7 +211,7 @@
       <div class="panel-title">Anleitung</div>
       <div class="instruction">
         <span class="icon">⬛</span>
-        <span>Klicke und ziehe auf der Karte um einen Bereich auszuwählen. Die BBOX-Koordinaten werden in EPSG:31254 angezeigt.</span>
+        <span>Klicke und ziehe auf der Karte um einen Bereich auszuwählen. Die Auswahl wird automatisch auf den verfügbaren Datensatz in Tirol begrenzt (y 167802–293567 / x -18752–202157).</span>
       </div>
     </div>
 
@@ -285,12 +270,12 @@
       </div>
     </div>
 
-    <!-- GENERATE PANEL (nur Einstellungen + Button) -->
+    <!-- GENERATE PANEL (Einstellungen + Button) -->
     <div class="panel">
       <div class="panel-title">3D-Datei generieren</div>
 
       <div class="gen-options">
-        <!-- Downsampling (jetzt als freies Eingabefeld) -->
+        <!-- Downsampling (freies Eingabefeld) -->
         <div class="opt-group">
           <span class="opt-label">Downsampling-Faktor (ganze Zahl)</span>
           <input class="num-input" type="number" id="downsample-input" value="1" min="1" step="1">
@@ -339,7 +324,7 @@
 </div><!-- /main -->
 
 <script>
-// ── PROJ ─────────────────────────────────────────────────────────────────
+// ── PROJ (EPSG:31254 ⇔ WGS84) ─────────────────────────────────────────────
 function toEPSG31254(lat, lon) {
   const dX=577.326, dY=90.129, dZ=463.919;
   const rX=5.137/206265, rY=1.474/206265, rZ=5.297/206265, s=2.4232/1e6;
@@ -395,10 +380,19 @@ function from31254toLonLat(y31254, x31254) {
   return [lat_w*180/Math.PI, Math.atan2(Yw, Xw)*180/Math.PI];
 }
 
+// ── Grenzen des verfügbaren DGM-Gebiets (EPSG:31254) ──────────────────────
+const Y_MIN = 167802;
+const Y_MAX = 293567;
+const X_MIN = -18752;
+const X_MAX = 202157;
+
 // ── MAP ───────────────────────────────────────────────────────────────────
 const map = L.map('map', { center: [47.2, 11.4], zoom: 9, zoomControl: true });
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap', maxZoom: 19 }).addTo(map);
-L.rectangle([[46.65, 10.1], [47.75, 12.95]], { color: '#4af0a8', weight: 1, opacity: 0.3, fill: false, dashArray: '6 4' }).addTo(map);
+// Optional: Verfügbaren Bereich als unscharfes Rechteck andeuten (in WGS84 umgerechnet)
+const swBounds = from31254toLonLat(Y_MIN, X_MIN);
+const neBounds = from31254toLonLat(Y_MAX, X_MAX);
+L.rectangle([swBounds, neBounds], { color: '#f0a84a', weight: 1, opacity: 0.2, fill: false, dashArray: '4 4' }).addTo(map);
 
 // right‑click drag
 let isRightDragging = false, lastMousePos = null;
@@ -411,7 +405,7 @@ map.getContainer().addEventListener('contextmenu', e => e.preventDefault());
 let isDrawing=false, startLatLng=null, currentRect=null, selectedBbox=null;
 let currentRes='5m', closedBody=false, fmtVal='stl';
 
-// ── DRAW ──────────────────────────────────────────────────────────────────
+// ── DRAW (mit automatischem Clipping an die Grenzen) ──────────────────────
 map.on('mousedown', e => {
   if (e.originalEvent.button !== 0) return;
   isDrawing=true; startLatLng=e.latlng;
@@ -422,17 +416,53 @@ map.on('mousedown', e => {
 map.on('mousemove', e => {
   if (!isDrawing||!startLatLng) return;
   if (currentRect) map.removeLayer(currentRect);
+  // Während des Ziehens zeigen wir vorläufig das volle Rechteck (ohne Clipping) an.
   currentRect = L.rectangle([startLatLng, e.latlng], { color:'#4af0a8', weight:2, opacity:0.9, fillColor:'#4af0a8', fillOpacity:0.08 }).addTo(map);
 });
 map.on('mouseup', e => {
   if (!isDrawing) return;
   isDrawing=false; map.dragging.enable();
   if (!startLatLng) return;
-  const p1=toEPSG31254(startLatLng.lat,startLatLng.lng), p2=toEPSG31254(e.latlng.lat,e.latlng.lng);
-  const ymin=Math.min(p1.y,p2.y), ymax=Math.max(p1.y,p2.y), xmin=Math.min(p1.x,p2.x), xmax=Math.max(p1.x,p2.x);
-  selectedBbox={ymin,xmin,ymax,xmax};
-  updateUI(ymin,xmin,ymax,xmax);
-  document.getElementById('status-badge').textContent='Ausgewählt';
+
+  // Roh-Koordinaten in EPSG:31254 umrechnen
+  const p1=toEPSG31254(startLatLng.lat,startLatLng.lng);
+  const p2=toEPSG31254(e.latlng.lat,e.latlng.lng);
+  let ymin = Math.min(p1.y, p2.y);
+  let ymax = Math.max(p1.y, p2.y);
+  let xmin = Math.min(p1.x, p2.x);
+  let xmax = Math.max(p1.x, p2.x);
+
+  // Auf verfügbaren Bereich clippen
+  ymin = Math.max(ymin, Y_MIN);
+  ymax = Math.min(ymax, Y_MAX);
+  xmin = Math.max(xmin, X_MIN);
+  xmax = Math.min(xmax, X_MAX);
+
+  // Prüfen, ob noch eine gültige Fläche übrig ist
+  if (ymin > ymax || xmin > xmax) {
+    alert('Die Auswahl liegt vollständig außerhalb des verfügbaren Gebiets (Tirol).');
+    if (currentRect) map.removeLayer(currentRect);
+    document.getElementById('status-badge').textContent = 'Bereit';
+    return;
+  }
+
+  // Auswahl speichern
+  selectedBbox = { ymin, xmin, ymax, xmax };
+
+  // Korrigiertes Rechteck in WGS84 berechnen und anzeigen
+  const sw = from31254toLonLat(ymin, xmin);
+  const ne = from31254toLonLat(ymax, xmax);
+  if (currentRect) map.removeLayer(currentRect);
+  currentRect = L.rectangle([sw, ne], { color:'#4af0a8', weight:2, opacity:0.9, fillColor:'#4af0a8', fillOpacity:0.08 }).addTo(map);
+
+  updateUI(ymin, xmin, ymax, xmax);
+
+  // Status mit Hinweis auf ggf. erfolgte Beschneidung
+  if (ymin > p1.y || ymax < p2.y || xmin > p1.x || xmax < p2.x) {
+    document.getElementById('status-badge').textContent = 'Auswahl beschnitten';
+  } else {
+    document.getElementById('status-badge').textContent = 'Ausgewählt';
+  }
 });
 
 // ── UI UPDATE (Koordinaten, Warnung, Aktivierung Gen‑Button) ─────────────
@@ -475,7 +505,7 @@ function clearSelection() {
   document.getElementById('dl-list').innerHTML='';
 }
 
-// ── GENERATE OPTIONS (ohne Downsample‑Buttons) ───────────────────────────
+// ── GENERATE OPTIONS (Downsample jetzt aus Input) ─────────────────────────
 function setClosed(v) {
   closedBody=v;
   document.getElementById('closed-no').className='tog-btn'+(v?'':' active');
@@ -494,7 +524,6 @@ let pollTimer = null;
 function startGenerate() {
   if (!selectedBbox) return;
 
-  // Werte direkt aus den Eingabefeldern holen
   const dsInput = document.getElementById('downsample-input');
   const dsVal = parseInt(dsInput.value, 10);
   if (isNaN(dsVal) || dsVal < 1) {
