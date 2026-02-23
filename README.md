@@ -1,7 +1,5 @@
 # Tirol Map 3D 🏔️
 
----
-
 ## Features
 
 - **Resolution:** Unterstützt 5m und 50cm Geländemodelle (M28).
@@ -20,7 +18,7 @@
 
 ## Nutzung
 
-1. Suche die gewünschten EPSG:31254 Koordinaten (z.B. auf [egps.io](epsg.io))) und  trage sie in die `BBOX` Variable ein.
+1. Suche die gewünschten EPSG:31254 Koordinaten (z.B. auf [epsg.io](https://epsg.io/map)) und  trage sie in die `BBOX` Variable ein.
 2. Höhenüberhöhung: `Z_SCALE` (1.0 = Originalgetreu).
 3. `main.py` ausführen und das gewünschte Format wählen.
 
