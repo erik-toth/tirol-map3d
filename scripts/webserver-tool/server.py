@@ -36,8 +36,7 @@ NS = {
     "wcs":    "http://www.opengis.net/wcs/2.0",
 }
 
-Z_SCALE  = 2.0
-Z_OFFSET = 50.0
+Z_OFFSET = 50.0  # Bodenversatz für geschlossene Körper (in Metern, wird später skaliert)
 
 
 def fetch_multipart(bbox, coverage_name, crs):
@@ -147,12 +146,12 @@ def downsample_array(arr, dy, dx, factor):
     return new_arr, dy * factor, dx * factor
 
 
-def build_mesh(arr, origin_y, origin_x, dy, dx, scale_factor=1.0, closed_body=False):
+def build_mesh(arr, origin_y, origin_x, dy, dx, scale_factor=1.0, closed_body=False, z_scale=2.0):
     rows, cols = arr.shape
     ys = origin_y - np.arange(rows) * dy
     xs = origin_x + np.arange(cols) * dx
     xx, yy = np.meshgrid(xs, ys)
-    zz = arr * Z_SCALE
+    zz = arr * z_scale                      # ← Benutzerdefinierte Höhenüberhöhung
     xx = xx * scale_factor
     yy = yy * scale_factor
     zz = zz * scale_factor
@@ -236,6 +235,7 @@ def run_job(job_id, params):
         closed_body   = bool(params.get("closed_body", False))
         target_mm     = float(params.get("target_mm", 100.0))
         fmt           = params.get("format", "stl")  # stl | obj | both
+        z_scale       = float(params.get("z_scale", 2.0))   # ← neuer Parameter
 
         log(f"Fetch data: {coverage_name}  BBOX={bbox}")
         parts = fetch_multipart(bbox, coverage_name, "EPSG:31254")
@@ -269,8 +269,9 @@ def run_job(job_id, params):
         scale_factor    = target_mm / max_dim_m / 1000.0
 
         log(f"Area: {actual_width_m:.0f}m × {actual_height_m:.0f}m → {target_mm}mm")
+        log(f"Z-Scale: {z_scale}")   # Log-Ausgabe zur Kontrolle
         log("Build mesh ...")
-        verts, faces = build_mesh(arr, origin_y, origin_x, dy, dx, scale_factor, closed_body)
+        verts, faces = build_mesh(arr, origin_y, origin_x, dy, dx, scale_factor, closed_body, z_scale)
         log(f"Mesh: {len(verts):,} vertices, {len(faces):,} triangles")
 
         out_files = []
@@ -331,7 +332,6 @@ def download(filename):
     if not os.path.exists(path):
         return jsonify({"error": "File not found"}), 404
     return send_file(path, as_attachment=True)
-
 
 
 @app.route("/")
