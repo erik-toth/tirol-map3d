@@ -29,7 +29,7 @@
 
 ### Webserver
 
-Hierzu einfach die `webserver.py` ausführen.
+Hierzu einfach die `server.py` ausführen.
 
 ## Rechtlicher Hinweis
 
@@ -38,3 +38,5 @@ Dieses Tool nutzt Daten des Landes Tirol. Es gilt die Nutzung gemäß den ["Rich
 ## Lizenz
 
 MIT License - Copyright (c) 2026 Erik Tóth
+
+MIT License - Copyright (c) 2026 Valentin Stadelwieser
