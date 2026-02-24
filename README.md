@@ -15,12 +15,21 @@
   - numpy
   - numpy-stl
   - rasterio
+- Additional packages for webserver:
+  - flask
+  - flask-cors
 
 ## Nutzung
+
+### Command Tool
 
 1. Suche die gewünschten EPSG:31254 Koordinaten (z.B. auf [epsg.io](https://epsg.io/map)) und  trage sie in die `BBOX` Variable ein.
 2. Höhenüberhöhung: `Z_SCALE` (1.0 = Originalgetreu).
 3. `main.py` ausführen und das gewünschte Format wählen.
+
+### Webserver
+
+Hierzu einfach die `webserver.py` ausführen.
 
 ## Rechtlicher Hinweis
 
