@@ -19,6 +19,8 @@ import os
 import xml.etree.ElementTree as ET
 import requests
 import numpy as np
+import math
+import shutil
 
 # config
 
@@ -34,11 +36,16 @@ COVERAGE_NAME = "Gelaendemodell_5m_M28"
 
 # Bounding Box in EPSG:31254 system
 # BBOX = (y_min, x_min, y_max, x_max)
-# covered area by the layers: y 167802–293567 / x -18752–202157
+# covered area by the layers: y 167802–293567 / x -18752–202086
 # How to get coords: https://epsg.io/map , projection to EPSG:31254
 # x-mid:80256 y-mid:236783 for Old Town, Innsbruck (AT)
 # kauns 26647.097431 215983.895577
-BBOX = (212983, 23647, 218983, 29647) # ~ 2x2 km area of kaunertal start
+# 327675
+BBOX = (167802.5, -18752.5, 293567.5, 202157.5) # (167802.5, -18752.5, 293567.5, 202157.5)
+
+# tiling settings
+TILE_SIZE = 25_000 # length of one tile
+TILING_THRESHOLD = 25_000 # tiling threshold
 
 # CRS (M28 -> EPSG:31254)
 CRS = "EPSG:31254"
@@ -51,6 +58,9 @@ Z_OFFSET = 50.0
 # output file names
 OUTPUT_STL = "terrain.stl"
 OUTPUT_OBJ  = "terrain.obj"
+
+# cache file path
+CACHE_DIR = ".tile_cache"
 
 
 # namespace GML-Parsing
@@ -229,7 +239,9 @@ def raw_to_array(tiff_bytes: bytes, rows: int = None, cols: int = None):
         arr  = flat[idx].reshape(arr.shape)
 
     valid = arr[~np.isnan(arr)]
-    print(f"  Altitude range: {valid.min()-Z_OFFSET:.1f} - {valid.max()-Z_OFFSET:.1f} m")
+    # print only if data is present
+    if len(valid) > 0:
+        print(f"  Altitude range: {valid.min()-Z_OFFSET:.1f} - {valid.max()-Z_OFFSET:.1f} m")
     return arr
 
 
@@ -258,6 +270,112 @@ def downsample_array(arr, dy, dx, factor):
     print(f"  New resolution: dx={new_dx:.1f} m, dy={new_dy:.1f} m")
     
     return new_arr, new_dy, new_dx
+
+
+# mesh simplification (curvature-aware vertex clustering)
+
+def simplify_mesh(verts: np.ndarray, faces: np.ndarray, target_ratio: float = 0.5) -> tuple[np.ndarray, np.ndarray]:
+    """
+    Generic mesh simplification using Quadric Error Metric (QEM) approximation
+    via vertex clustering on a uniform grid.
+    """
+
+    if target_ratio >= 1.0:
+        return verts, faces
+
+    n_verts = len(verts)
+    target_verts = max(4, int(n_verts * target_ratio))
+
+    # grid resolution
+    bbox_min = verts.min(axis=0)
+    bbox_max = verts.max(axis=0)
+    bbox_range = bbox_max - bbox_min
+    # avoid division by zero for flat axis
+    bbox_range = np.where(bbox_range == 0, 1e-9, bbox_range)
+
+    # cells per axis
+    cells_per_axis = max(2, int(round(target_verts ** (1.0 / 3.0))))
+    cell_size = bbox_range / cells_per_axis
+
+    # assign each vertex to a cell
+    norm_verts = (verts - bbox_min) / bbox_range
+    cell_idx_f = norm_verts * (cells_per_axis - 1e-9)
+    cell_idx   = cell_idx_f.astype(np.int32)
+    cell_idx   = np.clip(cell_idx, 0, cells_per_axis - 1)
+
+    stride = np.array([cells_per_axis * cells_per_axis, cells_per_axis, 1], dtype=np.int64)
+    flat_cell = (cell_idx * stride).sum(axis=1)
+
+    # quadric per cell and representative vertex
+    unique_cells, inv_map = np.unique(flat_cell, return_inverse=True)
+    n_cells = len(unique_cells)
+    cell_map = {c: i for i, c in enumerate(unique_cells)}
+
+    # accumulate triangle quadrics
+    # Q per cell stored as (A 3x3, b 3, c scalar) for the error form:
+    #   E(v) = v^T A v - 2 b^T v + c
+    A_acc = np.zeros((n_cells, 3, 3), dtype=np.float64)
+    b_acc = np.zeros((n_cells, 3),    dtype=np.float64)
+    c_acc = np.zeros(n_cells,         dtype=np.float64)
+
+    v0 = verts[faces[:, 0]]
+    v1 = verts[faces[:, 1]]
+    v2 = verts[faces[:, 2]]
+    edges1 = (v1 - v0).astype(np.float64)
+    edges2 = (v2 - v0).astype(np.float64)
+    normals = np.cross(edges1, edges2)
+    norms   = np.linalg.norm(normals, axis=1, keepdims=True)
+    norms   = np.where(norms == 0, 1e-15, norms)
+    normals = normals / norms
+
+    d = -(normals * v0.astype(np.float64)).sum(axis=1)
+
+    # for each face corner add the quadric to its cell
+    for corner in range(3):
+        vi_idx = faces[:, corner]
+        ci     = inv_map[vi_idx]
+        n      = normals
+        # A += n n^T
+        np.add.at(A_acc, ci, n[:, :, None] * n[:, None, :])
+        # b += d * n
+        np.add.at(b_acc, ci, (d[:, None] * n))
+        # c += d^2
+        np.add.at(c_acc, ci, d ** 2)
+    # note: b should be -A·p for centroid; using plane-based b here is correct
+    # the representative minimises E(v) = v^T A v + 2 b^T v + c
+
+    # solve for representative vertex per cell
+    new_verts_list = []
+    for i in range(n_cells):
+        A = A_acc[i]
+        b = -b_acc[i]   # A v = -b_acc  (from ∂E/∂v = 2Av + 2b_acc = 0)
+        try:
+            cond = np.linalg.cond(A)
+            if cond < 1e10:
+                v_opt = np.linalg.solve(A, b)
+            else:
+                raise np.linalg.LinAlgError("ill-conditioned")
+        except np.linalg.LinAlgError:
+            # fallback
+            mask  = inv_map == i
+            v_opt = verts[mask].mean(axis=0).astype(np.float64)
+        new_verts_list.append(v_opt)
+
+    new_verts = np.array(new_verts_list, dtype=np.float32)
+
+    # remap faces and remove degenerate triangles
+    new_face_idx = inv_map[faces]
+
+    valid = (new_face_idx[:, 0] != new_face_idx[:, 1]) & \
+            (new_face_idx[:, 1] != new_face_idx[:, 2]) & \
+            (new_face_idx[:, 0] != new_face_idx[:, 2])
+    new_faces = new_face_idx[valid].astype(np.int32)
+
+    print(f"  QEM simplification: {n_verts:,} → {len(new_verts):,} vertices  "
+          f"({len(faces):,} → {len(new_faces):,} triangles)  "
+          f"[target ratio {target_ratio:.0%}]")
+
+    return new_verts, new_faces
 
 
 # build mesh
@@ -394,35 +512,113 @@ def export_obj(verts, faces, path):
 
 if __name__ == "__main__":
 
-    # fetch data
-    parts = fetch_multipart(BBOX, COVERAGE_NAME, CRS)
+    # check if tiling is nessecery
+    ymin, xmin, ymax, xmax = BBOX
+    delta_y = abs(ymax - ymin)
+    delta_x = abs(xmax - xmin)
 
-    # identify parts
-    gml_bytes = None
-    raw_bytes  = None
-    for header, body in parts:
-        h = header.lower()
-        if "text/xml" in h or "gml" in h:
-            gml_bytes = body
-        else:
-            raw_bytes = body
+    if delta_y > TILING_THRESHOLD or delta_x > TILING_THRESHOLD:
+        # tiling mode
+        print(f"\nTiling is active: Area ({delta_x/1000:.1f}km x {delta_y/1000:.1f}km) is over {TILING_THRESHOLD/1000}km.")
+        
+        cols_count = math.ceil(delta_x / TILE_SIZE)
+        rows_count = math.ceil(delta_y / TILE_SIZE)
+        print(f"Spliting in {cols_count * rows_count} tiles ({cols_count}x{rows_count}).")
 
-    if gml_bytes is None or raw_bytes is None:
-        # fallback
-        gml_bytes = parts[0][1]
-        raw_bytes  = parts[1][1]
+        # load first tile before
+        test_bbox = (ymin, xmin, min(ymin + 100, ymax), min(xmin + 100, xmax))
+        parts = fetch_multipart(test_bbox, COVERAGE_NAME, CRS)
+        _, _, _, _, dy, dx = parse_gml(parts[0][1])
 
-    # Debugging:
-    # with open("debug.gml", "wb") as f: f.write(gml_bytes)
-    # with open("debug.bin", "wb") as f: f.write(raw_bytes)
+        # init the resulting array
+        total_rows_px = int(round(delta_y / dy))
+        total_cols_px = int(round(delta_x / dx))
+        arr = np.full((total_rows_px, total_cols_px), np.nan, dtype=np.float32)
+        
+        # origin point
+        origin_y, origin_x = ymax, xmin
 
-    # parse GML
-    print("\nParse GML ...")
-    rows, cols, origin_y, origin_x, dy, dx = parse_gml(gml_bytes)
+        # cache folder
+        os.makedirs(CACHE_DIR, exist_ok=True)
+        print(f"\nCache folder: '{CACHE_DIR}'")
 
-    # raw to array
-    print("\nConverting raw data ...")
-    arr = raw_to_array(raw_bytes)
+        # loade tiles and add
+        for r in range(rows_count):
+            for c in range(cols_count):
+                t_ymin = ymin + r * TILE_SIZE
+                t_xmin = xmin + c * TILE_SIZE
+                t_ymax = min(t_ymin + TILE_SIZE, ymax)
+                t_xmax = min(t_xmin + TILE_SIZE, xmax)
+                
+                print(f"\nLoad tile in row {r+1}, column {c+1}...")
+                tile_parts = fetch_multipart((t_ymin, t_xmin, t_ymax, t_xmax), COVERAGE_NAME, CRS)
+                
+                # identify parts
+                t_gml = None
+                t_raw = None
+                for header, body in tile_parts:
+                    h = header.lower()
+                    if "text/xml" in h or "gml" in h: t_gml = body
+                    else: t_raw = body
+                
+                if t_raw:
+                    tile_arr = raw_to_array(t_raw)
+                    th, tw = tile_arr.shape
+                    
+                    # save tile in cache instead of memory
+                    cache_path = os.path.join(CACHE_DIR, f"tile_{r}_{c}.npy")
+                    np.save(cache_path, tile_arr)
+                    print(f"  Tile saved: '{cache_path}'")
+                    
+                    # free tile from memory
+                    del tile_arr
+                    
+                    # load tile from cache
+                    tile_arr = np.load(cache_path)
+                    
+                    # calc the resulting index
+                    # y-axis is invertet --> ymax
+                    start_row = max(0, total_rows_px - int(round((t_ymax - ymin) / dy)))
+                    start_col = int(round((t_xmin - xmin) / dx))
+                    
+                    # paste with saftey check
+                    end_row = min(start_row + th, total_rows_px)
+                    end_col = min(start_col + tw, total_cols_px)
+                    arr[start_row:end_row, start_col:end_col] = tile_arr[:(end_row-start_row), :(end_col-start_col)]
+                    
+                    # free tile from memory
+                    del tile_arr
+
+        # delete cache dir
+        shutil.rmtree(CACHE_DIR)
+        print(f"\nCache '{CACHE_DIR}' is removed.")
+
+    else:
+        # fetch data
+        parts = fetch_multipart(BBOX, COVERAGE_NAME, CRS)
+
+        # identify parts
+        gml_bytes = None
+        raw_bytes  = None
+        for header, body in parts:
+            h = header.lower()
+            if "text/xml" in h or "gml" in h:
+                gml_bytes = body
+            else:
+                raw_bytes = body
+
+        if gml_bytes is None or raw_bytes is None:
+            # fallback
+            gml_bytes = parts[0][1]
+            raw_bytes  = parts[1][1]
+
+        # parse GML
+        print("\nParse GML ...")
+        rows, cols, origin_y, origin_x, dy, dx = parse_gml(gml_bytes)
+
+        # raw to array
+        print("\nConverting raw data ...")
+        arr = raw_to_array(raw_bytes)
 
     # downsampling
     print("\nMesh simplification:")
@@ -430,7 +626,7 @@ if __name__ == "__main__":
     estimated_verts = rows * cols
     estimated_faces = (rows - 1) * (cols - 1) * 2
     
-    print(f"  Current grid: {cols} × {rows} pixels")
+    print(f"  Current grid: {cols} x {rows} pixels")
     print(f"  Estimated mesh: {estimated_verts:,} vertices, {estimated_faces:,} triangles")
     
     while True:
@@ -446,7 +642,7 @@ if __name__ == "__main__":
                 new_verts = test_rows * test_cols
                 new_faces = (test_rows - 1) * (test_cols - 1) * 2
                 print(f"\n  With factor {downsample_factor}:")
-                print(f"  New grid: {test_cols} × {test_rows} pixels")
+                print(f"  New grid: {test_cols} x {test_rows} pixels")
                 print(f"  New mesh: {new_verts:,} vertices, {new_faces:,} triangles")
                 print(f"  Reduction: {estimated_verts/new_verts:.1f}x fewer vertices")
             
@@ -500,28 +696,56 @@ if __name__ == "__main__":
         except ValueError:
             print("Enter a valid number.")
 
+    # mesh simplification
+    simplify_ratio = 1.0
+    while True:
+        simp_input = input(
+            "\nMesh simplification after build? "
+            "(reduces file size via QEM; 0.0-1.0, 1.0 = no simplification): "
+        ).strip()
+        try:
+            simplify_ratio = float(simp_input)
+            if 0.0 < simplify_ratio <= 1.0:
+                if simplify_ratio < 1.0:
+                    estimated_new_verts = int(rows * cols * simplify_ratio)
+                    print(f"  Target: ~{estimated_new_verts:,} vertices "
+                          f"(from {rows * cols:,})")
+                break
+            print("Please enter a value between 0.0 (exclusive) and 1.0 (inclusive).")
+        except ValueError:
+            print("Enter a valid decimal number, e.g. 0.3")
+
     # build mesh
     print("\nBuilding mesh ...")
     verts, faces = build_mesh(arr, origin_y, origin_x, dy, dx, scale_factor, closed_body)
 
+    # apply simplification
+    if simplify_ratio < 1.0:
+        print("\nSimplifying mesh ...")
+        verts, faces = simplify_mesh(verts, faces, target_ratio=simplify_ratio)
+
     # export
     while True:
-        match(int(input("\nExport mesh to...\n   [0] STL\n   [1] OBJ\n   [2] STL and OBJ\nEnter a number: "))):
-            case 0:
-                print("\nThis may take a while. Exporting...")
-                export_stl(verts, faces, OUTPUT_STL)
-                break
-            case 1:
-                print("\nThis may take a while. Exporting...")
-                export_obj(verts, faces, OUTPUT_OBJ)
-                break
-            case 2:
-                print("\nThis may take a while. Exporting...")
-                export_stl(verts, faces, OUTPUT_STL)
-                export_obj(verts, faces, OUTPUT_OBJ)
-                break
-            case _: 
-                print("Invalid input.")
+        try:
+            choice = int(input("\nExport mesh to...\n   [0] STL\n   [1] OBJ\n   [2] STL and OBJ\nEnter a number: "))
+            match(choice):
+                case 0:
+                    print("\nThis may take a while. Exporting...")
+                    export_stl(verts, faces, OUTPUT_STL)
+                    break
+                case 1:
+                    print("\nThis may take a while. Exporting...")
+                    export_obj(verts, faces, OUTPUT_OBJ)
+                    break
+                case 2:
+                    print("\nThis may take a while. Exporting...")
+                    export_stl(verts, faces, OUTPUT_STL)
+                    export_obj(verts, faces, OUTPUT_OBJ)
+                    break
+                case _: 
+                    print("Invalid input.")
+        except ValueError:
+            print("Please enter a number.")
     
 
     print("\nDone!")
